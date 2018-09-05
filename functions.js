@@ -1,6 +1,7 @@
 var request = require('request');
 var rp = require('request-promise-native');
 var config = require('./config');
+var conf = new config();
 
 function ends_with_zkratka(text)
 {
@@ -218,12 +219,12 @@ function dealWithAPIResult(result, toptweet, encsearchquery, hasUser) {
 }
 
 function authorize() {
-    var header = config.consumerkey + ':' + config.consumersecret;
+    var header = conf.appsettings.consumerkey + ':' + conf.appsettings.consumersecret;
     var encheader = new Buffer(header).toString('base64');
     var finalheader = 'Basic ' + encheader;
 
     return new Promise((resolve, reject) => {
-        if (config.bearertoken != '') {
+        if (conf.appsettings.bearertoken != '') {
             resolve(true);
         }
         else {
@@ -241,7 +242,7 @@ function authorize() {
             
             rp(options)
             .then(function(body) {
-                config.bearertoken = JSON.parse(body).access_token;
+                conf.appsettings.bearertoken = JSON.parse(body).access_token;
                 resolve(true);
             })
             .catch(function(error) {
@@ -259,7 +260,7 @@ functions = {
         authorize().then( () => {
             var searchquery = req.body.query;
             var encsearchquery = encodeURIComponent(searchquery);
-            var bearerheader = 'Bearer ' + config.bearertoken;
+            var bearerheader = 'Bearer ' + conf.appsettings.bearertoken;
 
             getInitialData(encsearchquery).then(
                 function(initData) {        
