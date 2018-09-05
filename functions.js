@@ -2,49 +2,67 @@ var request = require('request');
 var rp = require('request-promise-native');
 var config = require('./config');
 
-function load_sentences(source, date_add, id_str)
+function ends_with_zkratka(text)
 {
+    var zkratky = [
+        ' tzv.', ' tzn.', ' tj.', ' mj.', ' např.', ' kupř.', ' popř.'
+    ];
+    return zkratky.some(function(v) { return text.indexOf(v) >= 0; });    
+}
+
+function load_sentences(source, date_add, id_str) {
     var ret = [];
     var sent_date = date_add;
     var sentence_to_add = '';
     var push_it = false;
+    
 
-    if(!(source.constructor === Array))
+    if (!(source.constructor === Array)) {
         return ret;
+    }
 
-    try
-    {
-        //source.children.forEach(function(child){
-        source.forEach(function(child){
-            if(child.type && child.type != 'Sentence')
-            {
+    try {
+        source.forEach(function(child) {
+            if (child.type && child.type != 'Sentence') {
                 var inner = load_sentences(child, sent_date, id_str);
                 ret = ret.concat(inner);
             }
-            else
-            {
+            else {
                 sentence_to_add += child.raw.replace(/@\w+/g,'');
                                        
-                if(sentence_to_add[sentence_to_add.length - 3] != ' ')
+                if (sentence_to_add[sentence_to_add.length - 3] != ' ' && ! ends_with_zkratka(sentence_to_add)) {
                     push_it = true;
-                else
-                    sentence_to_add += ' ';                
+                }
+                else {
+                   sentence_to_add += ' ';                
+                }
 
-                if(push_it == true){
-                    ret.push({created_at: sent_date, id: id_str, text: sentence_to_add.trim()});
+                if (push_it == true) {
+                    sentence_to_add = sentence_to_add.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '');
+                    sentence_to_add = sentence_to_add.trim().replace(/^\w/, c => c.toUpperCase());
+
+                    ret.push({
+                        created_at: sent_date, 
+                        id: id_str, 
+                        text: sentence_to_add
+                    });
                     sentence_to_add = '';
                     push_it = false;
                 }
             }
         });
     }
-    catch(e)
-    {   
+    catch(e) {   
         console.log(e);
     }
 
-    if(sentence_to_add != '')
-                ret.push({created_at: sent_date, id: id_str, text: sentence_to_add.trim()});
+    if(sentence_to_add != '') {
+                ret.push({
+                    created_at: sent_date, 
+                    id: id_str, 
+                    text: sentence_to_add.trim()
+                });
+    }
 
     return ret;
 }
@@ -72,8 +90,7 @@ function getTopTweet(encsearchquery)
     });
 }
 
-function getAuthor(encsearchquery)
-{
+function getAuthor(encsearchquery) {
 
  var TweetAuthor = require('./model/tweetAuthor');
 
@@ -89,8 +106,7 @@ function getAuthor(encsearchquery)
     });
 }
 
-function getInitialData(encsearchquery)
-{
+function getInitialData(encsearchquery) {
     return new Promise((resolve, reject) => {
         var initData = {
             toptweet : 0,
@@ -100,31 +116,32 @@ function getInitialData(encsearchquery)
         getTopTweet(encsearchquery).then(function(top_tweet)
         {
             initData.toptweet = top_tweet;
-            getAuthor(encsearchquery).then(function(author)
-            {   
-                if(!((typeof author === "undefined")))
+            getAuthor(encsearchquery).then(function(author) {   
+                if (!((typeof author === "undefined"))) {
                     initData.author = author;
+                }
 
                 resolve(initData);
             });
         })
-        .catch((err) => { reject(err)})        
+        .catch((err) => { reject(err) })        
     }); 
  
 }
 
-function findAdditionalTweets(encsearchquery, items)
-{
+function findAdditionalTweets(encsearchquery, items) {
     var TweetSentence = require('./model/tweetSentence');
     var sentences = [];
-    return new Promise((resolve, reject) => {
-            if(300 - items < 1) 
-                resolve([]);
 
-            TweetSentence.find({user: encsearchquery})
-                 .limit(300 - items)
-                 .sort({tweet_id: -1})
-                 .then(function(db_sentences){
+    return new Promise((resolve, reject) => {
+            if (300 - items < 1) { 
+                resolve([]);
+            }
+
+            TweetSentence.find( {user: encsearchquery} )
+                .limit(300 - items)
+                .sort({tweet_id: -1})
+                .then(function(db_sentences) {
                                         db_sentences.forEach(function(db_sentence){
                                             sentences = sentences.concat([
                                                 {
@@ -135,75 +152,60 @@ function findAdditionalTweets(encsearchquery, items)
                                                 ]);
                                         });
                                         resolve(sentences);
-                                    })
-                 .catch((err) => {
+                }).catch((err) => {
                         reject(err)
-                    });                 
+                });                 
         });    
 }
 
-function dealWithAPIResult(result, toptweet, encsearchquery, hasUser)
-{
+function dealWithAPIResult(result, toptweet, encsearchquery, hasUser) {
     var TweetSentence = require('./model/tweetSentence');
     var TweetAuthor = require('./model/tweetAuthor');
-    //var TextParse = require('text-parse');
     var TextParse = require('sentence-splitter');
     var sentences = [];
     var addUser = !hasUser;
     var user = {};
 
-    result.forEach(
-        function(element)
-        {
-            if(element.full_text != null && element.full_text.length > 0 && (toptweet = 0 || element.id > toptweet ))
-            {
-                try{
-                    //var parser = TextParse();
+    result.forEach( function(element) {
+        if (element.full_text != null && element.full_text.length > 0 && (toptweet = 0 || element.id > toptweet )) {
+            try {
+                var parsed_text = TextParse.split(element.full_text);
+                
+                var new_sentences = load_sentences(parsed_text, element.created_at, element.id);
 
-                    //var text = parser.parse(element.full_text);
-                    var text = TextParse.split(element.full_text);
-                    
-                    var new_sentences = load_sentences(text, element.created_at, element.id);
+                // add sent to db
+                new_sentences.forEach(function(sentence){
+                    if (sentence.text.trim() !== '') {
+                        var myData = new TweetSentence({
+                                                        tweet_id: sentence.id,
+                                                        date: sentence.created_at,
+                                                        user: encsearchquery, 
+                                                        text: sentence.text,
+                                                    });
+                        myData.save()
+                            .then(item => {}) // we do not need to anything about success ...
+                            .catch(err => {
+                              console.log(err);
+                            });
+                    }
+                });
 
-                    // add sent to db
-                    new_sentences.forEach(function(sentence){
-                        var text = sentence.text.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '');
-                        if (text.trim() !== '') {
-                            var myData = new TweetSentence({
-                                                            tweet_id: sentence.id,
-                                                            date: sentence.created_at,
-                                                            user: encsearchquery, 
-                                                            text: text,
-                                                        });
-                            myData.save()
-                                .then(item => {}) // we do not need to anything about success ...
-                                .catch(err => {
-                                  console.log(err);
-                                });
-                        }
-                    });
-
-                    sentences = sentences.concat(new_sentences);
-                    //console.log(element);
-                }
-                catch(e)
-                {
-                   console.log(e);
-                   // it may end here because some parsed text doe snot contain any "sentence"... but we will ignore it                               
-                }
-                user = element.user;
+                sentences = sentences.concat(new_sentences);
             }
-        });
+            catch(e) {
+               console.log(e);
+            }
+            user = element.user;
+        }
+    });
 
-    if(addUser)
-    {
+    if (addUser) {
         var myData = new TweetAuthor({
                               screenName: encsearchquery,
                               profile_image_url_https: user.profile_image_url_https,
                               name: user.name                                                    
                           });
-        myData.save()
-            .then(item => {}) // we do not need to anything about success ...
+        myData.save().then(item => {}) // we do not need to anything about success ...
             .catch(err => {
               console.log(err);
             });
@@ -216,17 +218,15 @@ function dealWithAPIResult(result, toptweet, encsearchquery, hasUser)
 }
 
 function authorize() {
-    var header = config.consumerkey + ':' +config.consumersecret;
+    var header = config.consumerkey + ':' + config.consumersecret;
     var encheader = new Buffer(header).toString('base64');
     var finalheader = 'Basic ' + encheader;
 
     return new Promise((resolve, reject) => {
-        if(config.bearertoken != '')
-        {
+        if (config.bearertoken != '') {
             resolve(true);
         }
-        else
-        {
+        else {
             var options = {
                     method: 'POST',
                     uri: 'https://api.twitter.com/oauth2/token',
@@ -240,14 +240,13 @@ function authorize() {
             };
             
             rp(options)
-            .then(function(body)
-                {
-                    config.bearertoken = JSON.parse(body).access_token;
-                    resolve(true);
-                })
-            .catch(function(error){
-                    reject(error);
-                });            
+            .then(function(body) {
+                config.bearertoken = JSON.parse(body).access_token;
+                resolve(true);
+            })
+            .catch(function(error) {
+                reject(error);
+            });            
         }
     });
 }
@@ -257,7 +256,7 @@ functions = {
     create_tweeet: function(req, res) {
         console.time("create_tweeet");
         
-        authorize().then(() => {
+        authorize().then( () => {
             var searchquery = req.body.query;
             var encsearchquery = encodeURIComponent(searchquery);
             var bearerheader = 'Bearer ' + config.bearertoken;
@@ -283,8 +282,7 @@ functions = {
                             }                                
                     };
 
-                    if(initData.toptweet != 0 && initData.toptweet != undefined) 
-                    {
+                    if (initData.toptweet != 0 && initData.toptweet != undefined) {
                         options.qs.since_id = initData.toptweet;
                     }
 
@@ -296,8 +294,7 @@ functions = {
                             var user = {};                                 
                             var hasUser = false;
 
-                            if(Object.keys(initData.author).length > 0)
-                            {
+                            if (Object.keys(initData.author).length > 0) {
                                 hasUser = true;
                                 user = initData.author;   
                             }
@@ -307,8 +304,7 @@ functions = {
 
                             sentences = resultAPI.sentences;
 
-                            if(!hasUser)
-                            {
+                            if (!hasUser) {
                                 user = resultAPI.user;
                             }
 
@@ -317,7 +313,7 @@ functions = {
                             console.log(items + ' items added into db');
                             
                             findAdditionalTweets(encsearchquery, items).then(
-                                function(dbSentences){ 
+                                function(dbSentences) { 
                                     sentences = sentences.concat(dbSentences);
 
                                     res.json({
@@ -332,8 +328,7 @@ functions = {
                                 });
 
                         })
-                    .catch(function(error)
-                    {
+                    .catch(function(error) {
                         console.log(error);
                     });
                 });
@@ -341,4 +336,5 @@ functions = {
         console.timeEnd("create_tweeet");
     }
 }
+
 module.exports = functions;
