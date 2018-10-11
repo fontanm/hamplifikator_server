@@ -33,6 +33,8 @@ if (conf.prod == true) {
 		key: fs.readFileSync(conf.ssl.privateKeyFile),
 		cert: fs.readFileSync(conf.ssl.certificateFile)
 	};
+	
+	console.log(options.cert);
 
 	https.createServer(options, app).listen(8081);
 }
