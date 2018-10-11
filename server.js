@@ -11,14 +11,12 @@ var app = express();
 var mongoose = require('mongoose');
 var mongoDB = conf.db;
 
-//var mongoDB = 'mongodb://localhost:27017/twitter-store';
 mongoose.connect(mongoDB);
 mongoose.Promise = global.Promise;
 var db = mongoose.connection;
 db.on('error', console.error.bind(console, 'MongoDB connection error:'));
 
 app.use(bodyParser.json());
-//app.use(bodyParser.urlencoded({extended: true}));
 app.use(cors());
 
 //app.post('/authorize', functions.authorize);
