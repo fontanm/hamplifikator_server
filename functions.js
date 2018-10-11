@@ -220,7 +220,7 @@ function dealWithAPIResult(result, toptweet, encsearchquery, hasUser) {
 
 function authorize() {
     var header = conf.appsettings.consumerkey + ':' + conf.appsettings.consumersecret;
-    var encheader = new Buffer(header).toString('base64');
+    var encheader = (Buffer.from(header)).toString('base64');
     var finalheader = 'Basic ' + encheader;
 
     return new Promise((resolve, reject) => {
