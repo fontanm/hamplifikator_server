@@ -11,13 +11,13 @@ var app = express();
 var mongoose = require('mongoose');
 var mongoDB = conf.db;
 
-mongoose.connect(mongoDB);
+mongoose.connect(mongoDB, { useNewUrlParser: true });
 mongoose.Promise = global.Promise;
 var db = mongoose.connection;
 db.on('error', console.error.bind(console, 'MongoDB connection error:'));
 
 app.use(bodyParser.json());
-app.use(cors());
+app.use(cors(conf.cors));
 
 //app.post('/authorize', functions.authorize);
 app.post('/create_tweeet', functions.create_tweeet);
