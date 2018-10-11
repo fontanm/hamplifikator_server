@@ -34,8 +34,6 @@ if (conf.prod == true) {
 		cert: fs.readFileSync(conf.ssl.certificateFile,'utf8')
 	};
 
-	console.log(options.cert);
-
 	https.createServer(options, app).listen(8081);
 }
 
