@@ -30,10 +30,10 @@ http.createServer(app).listen(8080);
 if (conf.prod == true) {
 	var fs = require('fs');
 	var options = {
-		key: fs.readFileSync(conf.ssl.privateKeyFile),
-		cert: fs.readFileSync(conf.ssl.certificateFile)
+		key: fs.readFileSync(conf.ssl.privateKeyFile,'utf8'),
+		cert: fs.readFileSync(conf.ssl.certificateFile,'utf8')
 	};
-	
+
 	console.log(options.cert);
 
 	https.createServer(options, app).listen(8081);
