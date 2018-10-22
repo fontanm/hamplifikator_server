@@ -24,29 +24,47 @@ function load_sentences(source, date_add, id_str) {
 
     try {
         source.forEach(function(child) {
+            /*
+            Recursive walk 
+            */
             if (child.type && child.type != 'Sentence') {
                 var inner = load_sentences(child, sent_date, id_str);
                 ret = ret.concat(inner);
             }
+            /*
+            deal with single sentence
+            */
             else {
                 sentence_to_add += child.raw.replace(/@\w+/g,'');
-                                       
+                                     
+                /*
+                  add it as complete senctence if it is not of the form 
+                  " [SingleLetter]." pattern                               some std. czech abbreviation pattern   
+                */
                 if (sentence_to_add[sentence_to_add.length - 3] != ' ' && ! ends_with_zkratka(sentence_to_add)) {
                     push_it = true;
                 }
                 else {
+                   // else next sentence is likley to be continuation of the previous 
                    sentence_to_add += ' ';                
                 }
 
+
                 if (push_it == true) {
+                    // remove urls
                     sentence_to_add = sentence_to_add.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '');
+
+                    // capitalize first letter 
                     sentence_to_add = sentence_to_add.trim().replace(/^\w/, c => c.toUpperCase());
 
+                    // add sentence to the return object
                     ret.push({
                         created_at: sent_date, 
                         id: id_str, 
                         text: sentence_to_add
                     });
+
+                    // clear state
                     sentence_to_add = '';
                     push_it = false;
                 }
@@ -57,6 +75,7 @@ function load_sentences(source, date_add, id_str) {
         console.log(e);
     }
 
+    // push if not empty
     if(sentence_to_add != '') {
                 ret.push({
                     created_at: sent_date, 
@@ -68,6 +87,9 @@ function load_sentences(source, date_add, id_str) {
     return ret;
 }
 
+/*
+ * Return latest save tweet for particular author
+ */
 function getTopTweet(encsearchquery)
 {
 
@@ -78,8 +100,6 @@ function getTopTweet(encsearchquery)
                      .limit(1)
                      .sort({tweet_id: -1})
                      .then(function(top_tweet){
-                                //console.log(top_tweet);
-
                                 if(top_tweet.length > 0)
                                     resolve(top_tweet[0].tweet_id);
                                 else 
@@ -91,6 +111,9 @@ function getTopTweet(encsearchquery)
     });
 }
 
+/*
+ * Return details about author
+ */
 function getAuthor(encsearchquery) {
 
  var TweetAuthor = require('./model/tweetAuthor');
@@ -107,6 +130,9 @@ function getAuthor(encsearchquery) {
     });
 }
 
+/*
+ * Initial data - top tweet and author's details
+ */
 function getInitialData(encsearchquery) {
     return new Promise((resolve, reject) => {
         var initData = {
@@ -130,6 +156,9 @@ function getInitialData(encsearchquery) {
  
 }
 
+/*
+ * Get odler tweets from the db to get 300 sentences
+ */ 
 function findAdditionalTweets(encsearchquery, items) {
     var TweetSentence = require('./model/tweetSentence');
     var sentences = [];
@@ -164,17 +193,22 @@ function dealWithAPIResult(result, toptweet, encsearchquery, hasUser) {
     var TweetAuthor = require('./model/tweetAuthor');
     var TextParse = require('sentence-splitter');
     var sentences = [];
+
+    // flag if the user data needs to be saved
     var addUser = !hasUser;
     var user = {};
 
     result.forEach( function(element) {
+        // we are interested only in results wiht (full)text
         if (element.full_text != null && element.full_text.length > 0 && (toptweet = 0 || element.id > toptweet )) {
             try {
+                // parse text using TextParse
                 var parsed_text = TextParse.split(element.full_text);
                 
+                // parse sentences using our own sentence parser
                 var new_sentences = load_sentences(parsed_text, element.created_at, element.id);
 
-                // add sent to db
+                // add sentences to the database
                 new_sentences.forEach(function(sentence){
                     if (sentence.text.trim() !== '') {
                         var myData = new TweetSentence({
@@ -200,6 +234,9 @@ function dealWithAPIResult(result, toptweet, encsearchquery, hasUser) {
         }
     });
 
+    /*
+     * Add user if she does not exist
+     */
     if (addUser) {
         var myData = new TweetAuthor({
                               screenName: encsearchquery,
@@ -218,6 +255,10 @@ function dealWithAPIResult(result, toptweet, encsearchquery, hasUser) {
     };
 }
 
+
+/*
+ * Twitter autohorization
+ */
 function authorize() {
     var header = conf.appsettings.consumerkey + ':' + conf.appsettings.consumersecret;
     var encheader = (Buffer.from(header)).toString('base64');
@@ -262,12 +303,12 @@ functions = {
             var encsearchquery = encodeURIComponent(searchquery);
             var bearerheader = 'Bearer ' + conf.appsettings.bearertoken;
 
+            // after getting initial data (toptweet is the most important one)
             getInitialData(encsearchquery).then(
                 function(initData) {        
-                    var query = 'https://api.twitter.com/1.1/statuses/user_timeline.json';
 
-                    //console.log(query);
-                    //console.log(initData);
+                    // prepare call to twitter API
+                    var query = 'https://api.twitter.com/1.1/statuses/user_timeline.json';
 
                     var sentences = []; 
 
@@ -283,10 +324,12 @@ functions = {
                             }                                
                     };
 
+                    // passign top tweet id - i.e. top tweet that we already have in the db
                     if (initData.toptweet != 0 && initData.toptweet != undefined) {
                         options.qs.since_id = initData.toptweet;
                     }
 
+                    // call the API
                     rp(options)
                     .then(
                         function(body){
