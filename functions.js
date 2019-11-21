@@ -248,7 +248,6 @@ function dealWithAPIResult(result, toptweet, encsearchquery, hasUser) {
               console.log(err);
             });
     }
-
     return {
         sentences: sentences,
         user: user
@@ -351,6 +350,25 @@ functions = {
                             if (!hasUser) {
                                 user = resultAPI.user;
                             }
+                            // hack to update img src all the time
+                            // TODO: fix db entry
+                            if( resultAPI.user.profile_image_url_https && user.profile_image_url_https != resultAPI.user.profile_image_url_https)
+                            {
+                                var TweetAuthor = require('./model/tweetAuthor');
+                                TweetAuthor.findOneAndUpdate(
+                                    {screenName: resultAPI.user.screenName},
+                                    {profile_image_url_https: resultAPI.user.profile_image_url_https},
+                                    function(err, author) {
+                                        if (err) 
+                                            console.log(err);
+                                        else
+                                            console.log('author updated');
+                                    });
+                                
+                                user.profile_image_url_https = resultAPI.user.profile_image_url_https;
+                            }                            
+
+
 
                             var items = sentences.length;
 
