@@ -16,6 +16,7 @@
     "cors": "^2.8.5",
     "express": "^4.16.4",
     "mongoose": "^5.4.12",
+    "nodemon": "^1.18.11",
     "request": "^2.88.0",
     "request-promise-native": "^1.0.5",
     "rsmq": "^0.9.3",
