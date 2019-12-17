@@ -11,16 +11,16 @@
   "license": "ISC",
   "devDependencies": {},
   "dependencies": {
-    "async": "^2.6.2",
-    "body-parser": "^1.18.3",
+    "async": "^2.6.3",
+    "body-parser": "^1.19.0",
     "cors": "^2.8.5",
-    "express": "^4.16.4",
-    "mongoose": "^5.4.12",
-    "nodemon": "^1.18.11",
+    "express": "^4.17.1",
+    "mongoose": "^5.7.5",
+    "nodemon": "^1.19.4",
     "request": "^2.88.0",
-    "request-promise-native": "^1.0.5",
+    "request-promise-native": "^1.0.8",
     "rsmq": "^0.9.3",
-    "sentence-splitter": "^3.0.11",
+    "sentence-splitter": "^3.2.0",
     "text-parse": "^3.0.0"
   }
 }
